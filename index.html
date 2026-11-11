@@ -114,6 +114,9 @@ header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:8
 .hist-x{margin-left:auto;border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:600;text-decoration:underline;padding:2px}
 .hist-x.armed{color:var(--warn)}
 .hero-meta .tr-line{flex-basis:100%;order:3;color:var(--t3);font-weight:600}
+.hero-add{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--soft);color:var(--blue);font-size:18px;font-weight:600;line-height:1;display:grid;place-items:center;padding:0}
+.hero-add:active{background:var(--blue-soft)}
+.hero-meta .tr-line.extra{order:2;border:0;background:transparent;padding:0;text-align:left;color:var(--blue);font:inherit;font-weight:600;cursor:pointer}
 .field2 label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-align:center;margin-bottom:2px}
 .amount-field.small input{font-size:36px}
 .amount-field.small span{font-size:22px}
@@ -124,6 +127,8 @@ header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:8
 .hero-meta .tr-line.apl{color:var(--t4);order:2}
 .kpi .sub .tr{font-size:11px;font-weight:600;color:var(--t3)}
 .k3 .kpi .sub{display:flex;align-items:center;gap:5px}
+button.kpi{position:relative}
+.sal-edit.corner{position:absolute;top:8px;right:8px}
 .sal-edit{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--rose-soft);color:var(--rose)}
 .sal-edit svg{width:12px;height:12px}
 .backup{display:grid;grid-template-columns:1fr auto;gap:8px}
@@ -270,6 +275,9 @@ const typeColor=t=>{const i=TYPES.findIndex(x=>x[0]===t);return `var(--t${(i<0?5
 
 const DEFAULTS={fixed:[]};
 const DEFAULT_SAV=[];
+const EXTRA_TYPES=[['credit','Déblocage de crédit','de crédit'],['cadeau','Cadeau','de cadeau'],['autre','Autre','']];
+const customTypes=()=>(store.settings&&Array.isArray(store.settings.extraTypes))?store.settings.extraTypes:[];
+const extraLabel=e=>{if(e.label)return esc(e.label);const t=EXTRA_TYPES.find(x=>x[0]===e.type);if(t&&t[2])return t[2];const c=customTypes().find(x=>x.id===e.type);return c?esc(c.name):'autre revenu'};
 const KINDS={
   depense:{title:'Mes dépenses',one:'catégorie',ex:'Courses, sorties, shopping…',add:'+ Ajouter une catégorie',newTitle:'Nouvelle catégorie de dépense',q:'Quoi ?',ph:'Ex. Courses',done:'Dépensé',ask:'dépensé',empty:'Aucune catégorie de dépense.'},
   epargne:{title:'Mon épargne',one:'compte épargne',ex:'Livret A, LDDS, LEP…',add:'+ Ajouter un compte épargne',newTitle:'Nouveau compte épargne',q:'Où ?',ph:'Ex. Livret A',done:'Versé',ask:'mis de côté',empty:'Aucun compte épargne.'},
@@ -286,7 +294,7 @@ const MAXY=+MAXM.slice(0,4);
 const MINM='2026-01', MINY=2026; // début du calendrier
 
 const settings=()=>{const s=store.settings&&Array.isArray(store.settings.fixed)?store.settings:DEFAULTS;return Array.isArray(s.savings)?s:{...s,savings:DEFAULT_SAV}};
-const monthDoc=k=>{const d=store['m-'+k]?clone(store['m-'+k]):{};d.salary=d.salary??null;d.tr=d.tr??null;d.apl=d.apl??null;d.paid=d.paid||{};d.amounts=d.amounts||{};d.savings=d.savings||{};return d};
+const monthDoc=k=>{const d=store['m-'+k]?clone(store['m-'+k]):{};d.salary=d.salary??null;d.tr=d.tr??null;d.apl=d.apl??null;d.extras=Array.isArray(d.extras)?d.extras:[];d.paid=d.paid||{};d.amounts=d.amounts||{};d.savings=d.savings||{};return d};
 const savName=id=>{const a=settings().savings.find(x=>x.id===id);return a?a.name:'Ancien placement'};
 const savCol=id=>{const i=settings().savings.findIndex(x=>x.id===id);return i<0?'var(--t6)':savColor(i)};
 const ym=k=>{const [y,m]=k.split('-').map(Number);return {y,m:m-1}};
@@ -300,8 +308,8 @@ function calc(k){
   const md=monthDoc(k), list=settings().fixed;
   const items=list.map(f=>{const base=amountFor(f,k),paid=md.paid[f.id]!=null;const amount=paid?md.paid[f.id]:(md.amounts[f.id]??base);return {...f,base,type:f.type||'autre',amount,paid,edited:!paid&&md.amounts[f.id]!=null&&md.amounts[f.id]!==base||paid&&md.paid[f.id]!==base}});
   const total=items.reduce((a,x)=>a+x.amount,0), paid=items.filter(x=>x.paid).reduce((a,x)=>a+x.amount,0);
-  let saved=0,invested=0,spent=0;Object.entries(md.savings).forEach(([id,v])=>{v=+v||0;const kd=accKind(id);kd==='invest'?invested+=v:kd==='depense'?spent+=v:saved+=v});
-  return {md,items,total,paid,saved,invested,spent,toPay:total-paid,salary:md.salary,tr:md.tr,apl:md.apl,rest:md.salary!=null||md.apl!=null?(md.salary||0)+(md.apl||0)-total-spent-saved-invested:null,nPaid:items.filter(x=>x.paid).length};
+  const extra=md.extras.reduce((a,e)=>a+(+e.amount||0),0);let saved=0,invested=0,spent=0;Object.entries(md.savings).forEach(([id,v])=>{v=+v||0;const kd=accKind(id);kd==='invest'?invested+=v:kd==='depense'?spent+=v:saved+=v});
+  return {md,items,total,paid,saved,invested,spent,extra,toPay:total-paid,salary:md.salary,tr:md.tr,apl:md.apl,rest:md.salary!=null||md.apl!=null||extra?(md.salary||0)+(md.apl||0)+extra-total-spent-saved-invested:null,nPaid:items.filter(x=>x.paid).length};
 }
 function byType(items){const o={};items.forEach(x=>o[x.type]=(o[x.type]||0)+x.amount);return TYPES.map(([id,n])=>({id,n,v:o[id]||0,col:typeColor(id)})).filter(x=>x.v>0)}
 
@@ -313,8 +321,8 @@ function save(id,data,silent){
   try{localStorage.setItem(LS_KEY,JSON.stringify(store))}
   catch(e){toast("Impossible d'enregistrer sur cet appareil (navigation privée ?).")}
 }
-const saveMonth=(k,md,silent)=>save('m-'+k,{salary:md.salary,tr:md.tr,apl:md.apl,paid:md.paid,amounts:md.amounts,savings:md.savings},silent);
-function saveSettings(s,silent){save('settings',{fixed:s.fixed,savings:s.savings},silent)}
+const saveMonth=(k,md,silent)=>save('m-'+k,{salary:md.salary,tr:md.tr,apl:md.apl,extras:md.extras,paid:md.paid,amounts:md.amounts,savings:md.savings},silent);
+function saveSettings(s,silent){save('settings',{fixed:s.fixed,savings:s.savings,extraTypes:s.extraTypes||[]},silent)}
 
 /* ---------- rendu ---------- */
 function render(force){
@@ -343,10 +351,10 @@ function renderMonth(){
   let hero;
   {
     const sal=Math.max(c.salary||0,c.total+c.spent+c.saved+c.invested)||1;
-    hero=`<section class="card hero"><div class="hero-top"><span class="eyebrow">Reste à vivre</span></div>
+    hero=`<section class="card hero"><div class="hero-top"><span class="eyebrow">Reste à vivre</span><button class="hero-add" data-act="extra" aria-label="Ajouter un revenu ponctuel">+</button></div>
       <div class="big num ${c.rest<0?'neg':''}">${c.rest==null?'— €':money(c.rest)}</div>
       <div class="stack" aria-hidden="true">${parts.map(p=>`<span style="width:${p.v/sal*100}%;background:${p.col}"></span>`).join('')}${c.spent>0?`<span style="width:${c.spent/sal*100}%;background:var(--t5)"></span>`:''}${c.saved?`<span style="width:${c.saved/sal*100}%;background:repeating-linear-gradient(135deg,var(--lav) 0 4px,var(--rose-soft) 4px 7px)"></span>`:''}${c.invested?`<span style="width:${c.invested/sal*100}%;background:repeating-linear-gradient(135deg,var(--t4) 0 4px,var(--rose-soft) 4px 7px)"></span>`:''}</div>
-      <div class="hero-meta num"><span>${c.rest==null?'Ajoute ton salaire pour le calculer':'Après charges, dépenses, épargne et investissements'}</span>${c.apl?`<span class="tr-line apl">dont ${eur0.format(c.apl)} d'APL</span>`:''}${c.tr?`<span class="tr-line">+ ${eur0.format(c.tr)} de tickets resto</span>`:''}<span>${isCur?'Mois en cours':k<CUR?'Mois terminé':'Mois à venir'}</span></div></section>`;
+      <div class="hero-meta num"><span>${c.rest==null?'Ajoute ton salaire pour le calculer':'Après charges, dépenses, épargne et investissements'}</span>${c.apl?`<span class="tr-line apl">dont ${eur0.format(c.apl)} d'APL</span>`:''}${c.md.extras.map(e=>`<button type="button" class="tr-line extra num" data-act="extra" data-id="${e.id}">+ ${eur0.format(e.amount)} ${extraLabel(e)}</button>`).join('')}${c.tr?`<span class="tr-line">+ ${eur0.format(c.tr)} de tickets resto</span>`:''}<span>${isCur?'Mois en cours':k<CUR?'Mois terminé':'Mois à venir'}</span></div></section>`;
   }
   const pct=c.items.length?c.nPaid/c.items.length*100:0;
   const rows=c.items.length?`<div class="rows">${[...c.items].sort((a,b)=>a.paid-b.paid||a.day-b.day).map(x=>`<div class="row ${x.paid?'paid':''}">
@@ -361,7 +369,7 @@ function renderMonth(){
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--rose)"></span>Charges du mois</span><span class="v num">${eur0.format(c.total)}</span><span class="sub">${c.items.length} prélèvements</span></div>
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--ok)"></span>Déjà payé</span><span class="v num">${eur0.format(c.paid)}</span><span class="sub">${c.nPaid} sur ${c.items.length}</span></div>
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t5)"></span>Reste à payer</span><span class="v num">${eur0.format(c.toPay)}</span><span class="sub">${c.toPay?'d\'ici la fin du mois':'tout est réglé'}</span></div>
-    <button class="card kpi" data-act="salary"><span class="k"><span class="dot" style="background:var(--t3)"></span>Salaire</span><span class="v num">${c.salary!=null?eur0.format(c.salary):'—'}</span><span class="sub sal-sub"><span class="sal-edit" aria-label="Modifier le salaire"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></span>${c.apl?`<span class="tr apl num">+ ${eur0.format(c.apl)} APL</span>`:''}${c.tr?`<span class="tr num">+ ${eur0.format(c.tr)} TR</span>`:''}</span></button>
+    <button class="card kpi" data-act="salary"><span class="sal-edit corner" aria-label="Modifier le salaire"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></span><span class="k"><span class="dot" style="background:var(--t3)"></span>Salaire</span><span class="v num">${c.salary!=null?eur0.format(c.salary):'—'}</span><span class="sub sal-sub">${c.apl?`<span class="tr apl num">+ ${eur0.format(c.apl)} APL</span>`:''}${c.tr?`<span class="tr num">+ ${eur0.format(c.tr)} TR</span>`:''}</span></button>
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--lav)"></span>Épargne</span><span class="v num">${eur0.format(c.saved)}</span><span class="sub">${c.salary?Math.round(c.saved/c.salary*100)+' % du salaire':'ce mois-ci'}</span></div>
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t4)"></span>Investissement</span><span class="v num">${eur0.format(c.invested)}</span><span class="sub">${c.salary?Math.round(c.invested/c.salary*100)+' % du salaire':'ce mois-ci'}</span></div>
   </div>
@@ -376,7 +384,7 @@ function renderMonth(){
 
 function renderYear(){
   const y=view.year;
-  const months=[...Array(12)].map((_,i)=>{const k=key(y,i),c=calc(k);return {i,k,c,has:!!store['m-'+k]&&(c.salary!=null||c.tr!=null||c.apl!=null||c.nPaid>0||c.saved>0||c.invested>0||c.spent>0)}});
+  const months=[...Array(12)].map((_,i)=>{const k=key(y,i),c=calc(k);return {i,k,c,has:!!store['m-'+k]&&(c.salary!=null||c.tr!=null||c.apl!=null||c.nPaid>0||c.saved>0||c.invested>0||c.spent>0||c.extra!==0)}});
   const tracked=months.filter(x=>x.has);
   const paid=tracked.reduce((a,x)=>a+x.c.paid,0), income=tracked.reduce((a,x)=>a+(x.c.salary||0)+(x.c.apl||0)+(x.c.tr||0),0), aplY=tracked.reduce((a,x)=>a+(x.c.apl||0),0), trY=tracked.reduce((a,x)=>a+(x.c.tr||0),0);
   const spentY=tracked.reduce((a,x)=>a+x.c.spent,0), savedY=tracked.reduce((a,x)=>a+x.c.saved,0), investY=tracked.reduce((a,x)=>a+x.c.invested,0);
@@ -404,7 +412,7 @@ function renderYear(){
   const o={};tracked.forEach(x=>x.c.items.filter(i=>i.paid).forEach(i=>o[i.type]=(o[i.type]||0)+i.amount));
   const parts=TYPES.map(([id,n])=>({id,n,v:o[id]||0,col:typeColor(id)})).filter(p=>p.v>0).sort((a,b)=>b.v-a.v);
   const pmax=Math.max(1,...parts.map(p=>p.v));
-  const list=tracked.length?`<div class="rows">${[...tracked].reverse().map(x=>{const r=x.c.salary!=null||x.c.apl!=null||x.c.tr!=null?(x.c.salary||0)+(x.c.apl||0)+(x.c.tr||0)-x.c.paid-x.c.spent-x.c.saved-x.c.invested:null;const inc=x.c.salary!=null||x.c.apl!=null||x.c.tr!=null?(x.c.salary||0)+(x.c.apl||0)+(x.c.tr||0):null;return `<button class="row" style="border-left:0;border-right:0;border-bottom:0;background:transparent;text-align:left;width:100%" data-act="gomonth" data-k="${x.k}"><div class="main"><span class="t" style="text-transform:capitalize">${MOIS[x.i]}</span><span class="s num">Charges payées ${eur0.format(x.c.paid)} · ${x.c.nPaid}/${x.c.items.length}</span></div><span class="tags">${inc!=null?`<span class="tag blue num" title="Revenus">${eur0.format(inc)}</span>`:''}${r!=null?`<span class="tag ${r>=0?'ok':'rose'} num" title="Solde">${r>=0?'+':''}${eur0.format(r)}</span>`:''}</span></button>`}).join('')}</div>`
+  const list=tracked.length?`<div class="rows">${[...tracked].reverse().map(x=>{const r=x.c.salary!=null||x.c.apl!=null||x.c.tr!=null||x.c.extra?(x.c.salary||0)+(x.c.apl||0)+(x.c.tr||0)+x.c.extra-x.c.paid-x.c.spent-x.c.saved-x.c.invested:null;const inc=x.c.salary!=null||x.c.apl!=null||x.c.tr!=null?(x.c.salary||0)+(x.c.apl||0)+(x.c.tr||0):null;return `<button class="row" style="border-left:0;border-right:0;border-bottom:0;background:transparent;text-align:left;width:100%" data-act="gomonth" data-k="${x.k}"><div class="main"><span class="t" style="text-transform:capitalize">${MOIS[x.i]}</span><span class="s num">Charges payées ${eur0.format(x.c.paid)} · ${x.c.nPaid}/${x.c.items.length}</span></div><span class="tags">${inc!=null?`<span class="tag blue num" title="Revenus">${eur0.format(inc)}</span>`:''}${r!=null?`<span class="tag ${r>=0?'ok':'rose'} num" title="Solde">${r>=0?'+':''}${eur0.format(r)}</span>`:''}</span></button>`}).join('')}</div>`
     :`<div class="empty"><b>Rien pour ${y}</b>Les totaux apparaîtront dès que tu cocheras une charge.</div>`;
   return `${statusNote()}
   <div class="seg"><button data-act="yprev" aria-label="Année précédente" ${y<=MINY?'disabled style="opacity:.25;cursor:default"':''}>‹</button><div class="label">${y}<small>Suivi de l'année</small></div><button data-act="ynext" aria-label="Année suivante" ${y>=MAXY?'disabled style="opacity:.25;cursor:default"':''}>›</button></div>
@@ -491,6 +499,16 @@ function amountSheet(id){
     <p class="err" id="amt-err"></p><button class="primary" type="submit">Enregistrer</button>
     ${x.edited?'<button class="secondary" type="button" data-act="resetamt">Revenir au montant habituel</button>':''}</form>`);
 }
+function extraSheet(id){
+  const md=monthDoc(view.month),e=id?md.extras.find(x=>x.id===id):null,t=e?e.type:'credit';
+  const opts=[...EXTRA_TYPES.filter(x=>x[0]!=='autre').map(x=>[x[0],x[1]]),...customTypes().map(c=>[c.id,esc(c.name)]),['autre','Autre…']];
+  openSheet(`<form id="extraForm" data-id="${e?e.id:''}" novalidate><h3>${e?'Modifier':'Revenu ponctuel'}<button type="button" data-act="close">Fermer</button></h3>
+    <div class="opts">${opts.map(([v,n])=>`<label><input type="radio" name="xt" value="${v}" ${v===t?'checked':''}><span><b>${n}</b></span></label>`).join('')}</div>
+    <div class="edit" id="xNewWrap" style="padding:0;grid-template-columns:1fr" ${t==='autre'?'':'hidden'}><label>Nom du revenu<input id="x-new" autocomplete="off" placeholder="Ex. Prime, remboursement" value="${e&&e.type==='autre'&&e.label?esc(e.label):''}"></label></div>
+    <div class="amount-field"><input id="x-v" inputmode="decimal" placeholder="0" autocomplete="off" value="${e?String(e.amount).replace('.',','):''}" aria-label="Montant"><span>€</span></div>
+    <p class="err" id="x-err"></p><button class="primary" type="submit">${e?'Enregistrer':'Ajouter'}</button>
+    ${e?'<button class="secondary" type="button" data-act="delextra">Supprimer</button>':''}</form>`);
+}
 function savingSheet(id){
   const md=monthDoc(view.month),v=+md.savings[id]||0,kind=accKind(id);
   openSheet(`<form id="savForm" data-id="${id}" novalidate><h3>${esc(savName(id))}<button type="button" data-act="close">Fermer</button></h3>
@@ -547,6 +565,8 @@ document.addEventListener('click',ev=>{
     else md.paid[x.id]=x.amount; saveMonth(view.month,md)}
   else if(a==='amount')amountSheet(b.dataset.id);
   else if(a==='saving')savingSheet(b.dataset.id);
+  else if(a==='extra')extraSheet(b.dataset.id||null);
+  else if(a==='delextra'){const id=$('#extraForm').dataset.id,md=monthDoc(view.month);md.extras=md.extras.filter(x=>x.id!==id);saveMonth(view.month,md);closeSheet();toast('Revenu supprimé')}
   else if(a==='sign'){const i=$('#sav-v'),v=i.value.trim();i.value=v.startsWith('-')?v.slice(1):'-'+v;i.focus()}
   else if(a==='export')exportData();
   else if(a==='import')$('#importInput').click();
@@ -574,6 +594,7 @@ $('#backdrop').addEventListener('click',closeSheet);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&sheetOpen)closeSheet()});
 
 document.addEventListener('change',ev=>{
+  if(ev.target.name==='xt'){$('#xNewWrap').hidden=ev.target.value!=='autre';if(ev.target.value==='autre')$('#x-new').focus();return}
   if(ev.target.name==='eff'){$('#pickWrap').hidden=ev.target.value!=='pick';return}
   const t=ev.target.closest('[data-set]');if(!t)return;
   const s=clone(settings()),i=+t.dataset.i,f=t.dataset.set,item=s.fixed[i]||{};
@@ -602,6 +623,15 @@ document.addEventListener('submit',ev=>{
     if(choice==='always'){item.amount=v;delete item.history}
     else{item.history=(item.history||[]).filter(h=>h.from!==from);item.history.push({from,amount:v})}
     saveSettings(s,true);closeSheet();render(true);toast(choice==='always'?'Prix modifié':`${eur.format(v)} dès ${fmtMonth(from)}`);return}
+  if(f.id==='extraForm'){const v=parseAmt($('#x-v').value);let type=(f.querySelector('input[name=xt]:checked')||{}).value||'credit';
+    if(isNaN(v)||v<=0){$('#x-err').textContent='Indique un montant, par exemple 2000.';return}
+    if(type==='autre'){const name=$('#x-new').value.trim();if(!name){$('#x-err').textContent='Indique le nom du revenu.';return}
+      const st=clone(settings()),list=st.extraTypes=Array.isArray(st.extraTypes)?st.extraTypes:[];
+      let c=list.find(x=>x.name.toLowerCase()===name.toLowerCase());if(!c){c={id:'x'+uidGen(),name};list.push(c);saveSettings(st,true)}
+      type=c.id}
+    const md=monthDoc(view.month),id=f.dataset.id||uidGen(),entry={id,type,amount:v};
+    const i=md.extras.findIndex(x=>x.id===id);i>=0?md.extras[i]=entry:md.extras.push(entry);
+    saveMonth(view.month,md);closeSheet();toast(`+ ${eur.format(v)} ajouté au reste à vivre`);return}
   if(f.id==='savForm'){const v=parseAmt($('#sav-v').value||'0');if(isNaN(v)){$('#sav-err').textContent='Indique un montant, par exemple 150 ou -300.';return}
     const id=f.dataset.id,md=monthDoc(view.month);if(v)md.savings[id]=v;else delete md.savings[id];saveMonth(view.month,md);closeSheet();toast(v?`${eur.format(v)} sur ${savName(id)}`:'Remis à 0')}
   if(f.id==='accForm'){const name=$('#acc-name').value.trim(),v=parseAmt($('#acc-v').value||'0');
