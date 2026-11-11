@@ -454,7 +454,7 @@ async function exportData(){
   const mark=()=>{try{localStorage.setItem(LS_KEY+':export',payload.exportedAt)}catch(e){}render(true)};
   try{
     const file=new File([blob],name,{type:'application/json'});
-    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Mon Budget'});mark();toast('Sauvegarde exportée');return}
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file]});mark();toast('Sauvegarde exportée');return}
   }catch(e){if(e&&e.name==='AbortError')return}
   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),4000);mark();toast('Sauvegarde téléchargée');
