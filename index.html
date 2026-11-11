@@ -270,8 +270,11 @@ const typeColor=t=>{const i=TYPES.findIndex(x=>x[0]===t);return `var(--t${(i<0?5
 
 const DEFAULTS={fixed:[]};
 const DEFAULT_SAV=[];
-const KINDS={epargne:{title:'Mon épargne',one:'compte épargne',ex:'Livret A, LDDS, LEP…'},invest:{title:'Mes investissements',one:'investissement',ex:'PEA, crypto, assurance-vie…'}};
-const accKind=id=>{const a=settings().savings.find(x=>x.id===id);return a&&a.kind==='invest'?'invest':'epargne'};
+const KINDS={
+  depense:{title:'Mes dépenses',one:'catégorie',ex:'Courses, sorties, shopping…',add:'+ Ajouter une catégorie',newTitle:'Nouvelle catégorie de dépense',q:'Quoi ?',ph:'Ex. Courses',done:'Dépensé',ask:'dépensé',empty:'Aucune catégorie de dépense.'},
+  epargne:{title:'Mon épargne',one:'compte épargne',ex:'Livret A, LDDS, LEP…',add:'+ Ajouter un compte épargne',newTitle:'Nouveau compte épargne',q:'Où ?',ph:'Ex. Livret A',done:'Versé',ask:'mis de côté',empty:'Aucun compte épargne.'},
+  invest:{title:'Mes investissements',one:'investissement',ex:'PEA, crypto, assurance-vie…',add:'+ Ajouter un investissement',newTitle:'Nouvel investissement',q:'Où ?',ph:'Ex. PEA',done:'Investi',ask:'investi',empty:'Aucun investissement.'}};
+const accKind=id=>{const a=settings().savings.find(x=>x.id===id);return a&&KINDS[a.kind]?a.kind:'epargne'};
 const savColor=i=>`var(--t${[2,4,3,1,5,6][i%6]})`;
 
 const now=new Date(), CUR=key(now.getFullYear(),now.getMonth());
@@ -297,8 +300,8 @@ function calc(k){
   const md=monthDoc(k), list=settings().fixed;
   const items=list.map(f=>{const base=amountFor(f,k),paid=md.paid[f.id]!=null;const amount=paid?md.paid[f.id]:(md.amounts[f.id]??base);return {...f,base,type:f.type||'autre',amount,paid,edited:!paid&&md.amounts[f.id]!=null&&md.amounts[f.id]!==base||paid&&md.paid[f.id]!==base}});
   const total=items.reduce((a,x)=>a+x.amount,0), paid=items.filter(x=>x.paid).reduce((a,x)=>a+x.amount,0);
-  let saved=0,invested=0;Object.entries(md.savings).forEach(([id,v])=>{v=+v||0;accKind(id)==='invest'?invested+=v:saved+=v});
-  return {md,items,total,paid,saved,invested,toPay:total-paid,salary:md.salary,tr:md.tr,apl:md.apl,rest:md.salary!=null||md.apl!=null?(md.salary||0)+(md.apl||0)-total-saved-invested:null,nPaid:items.filter(x=>x.paid).length};
+  let saved=0,invested=0,spent=0;Object.entries(md.savings).forEach(([id,v])=>{v=+v||0;const kd=accKind(id);kd==='invest'?invested+=v:kd==='depense'?spent+=v:saved+=v});
+  return {md,items,total,paid,saved,invested,spent,toPay:total-paid,salary:md.salary,tr:md.tr,apl:md.apl,rest:md.salary!=null||md.apl!=null?(md.salary||0)+(md.apl||0)-total-spent-saved-invested:null,nPaid:items.filter(x=>x.paid).length};
 }
 function byType(items){const o={};items.forEach(x=>o[x.type]=(o[x.type]||0)+x.amount);return TYPES.map(([id,n])=>({id,n,v:o[id]||0,col:typeColor(id)})).filter(x=>x.v>0)}
 
@@ -330,20 +333,20 @@ function donut(parts,total,center,sub){
 
 function accCard(kind,c){
   const K=KINDS[kind],all=settings().savings,list=all.filter(a=>(a.kind||'epargne')===kind);
-  const tot=kind==='invest'?c.invested:c.saved;
+  const tot=kind==='invest'?c.invested:kind==='depense'?c.spent:c.saved;
   return `<section class="card"><div class="card-h"><h2>${K.title}</h2><span class="aside num">${eur0.format(tot)} ce mois-ci</span></div>
-    <div class="rows" style="padding-top:6px">${list.map(s=>{const i=all.indexOf(s),v=+c.md.savings[s.id]||0;return `<div class="row"><span class="sav-ic" style="background:${savColor(i)}">${esc(s.name.slice(0,1).toUpperCase())}</span><div class="main"><span class="t">${esc(s.name)}</span><span class="s">${v?(kind==='invest'?'Investi':'Versé')+' ce mois-ci':'Rien pour l\'instant'}</span></div><button class="amt num ${v?'':'zero'}" data-act="saving" data-id="${s.id}" aria-label="Montant pour ${esc(s.name)}">${v?eur.format(v):'+ Montant'}</button></div>`}).join('')||`<div class="empty" style="padding:14px 16px">Aucun ${K.one}. Ajoute-en dans « Mes charges ».</div>`}</div></section>`;
+    <div class="rows" style="padding-top:6px">${list.map(s=>{const i=all.indexOf(s),v=+c.md.savings[s.id]||0;return `<div class="row"><span class="sav-ic" style="background:${savColor(i)}">${esc(s.name.slice(0,1).toUpperCase())}</span><div class="main"><span class="t">${esc(s.name)}</span><span class="s">${v?K.done+' ce mois-ci':'Rien pour l\'instant'}</span></div><button class="amt num ${v?'':'zero'}" data-act="saving" data-id="${s.id}" aria-label="Montant pour ${esc(s.name)}">${v?eur.format(v):'+ Montant'}</button></div>`}).join('')||`<div class="empty" style="padding:14px 16px">${K.empty} Ajoute-en dans « Mes charges ».</div>`}</div></section>`;
 }
 function renderMonth(){
   const k=view.month,{y,m}=ym(k),c=calc(k),isCur=k===CUR;
   const prevSal=monthDoc(shift(k,-1)).salary, parts=byType(c.items);
   let hero;
   {
-    const sal=Math.max(c.salary||0,c.total+c.saved+c.invested)||1;
+    const sal=Math.max(c.salary||0,c.total+c.spent+c.saved+c.invested)||1;
     hero=`<section class="card hero"><div class="hero-top"><span class="eyebrow">Reste à vivre</span></div>
       <div class="big num ${c.rest<0?'neg':''}">${c.rest==null?'— €':money(c.rest)}</div>
-      <div class="stack" aria-hidden="true">${parts.map(p=>`<span style="width:${p.v/sal*100}%;background:${p.col}"></span>`).join('')}${c.saved?`<span style="width:${c.saved/sal*100}%;background:repeating-linear-gradient(135deg,var(--lav) 0 4px,var(--rose-soft) 4px 7px)"></span>`:''}${c.invested?`<span style="width:${c.invested/sal*100}%;background:repeating-linear-gradient(135deg,var(--t4) 0 4px,var(--rose-soft) 4px 7px)"></span>`:''}</div>
-      <div class="hero-meta num"><span>${c.rest==null?'Ajoute ton salaire pour le calculer':'Après charges, épargne et investissements'}</span>${c.apl?`<span class="tr-line apl">dont ${eur0.format(c.apl)} d'APL</span>`:''}${c.tr?`<span class="tr-line">+ ${eur0.format(c.tr)} de tickets resto</span>`:''}<span>${isCur?'Mois en cours':k<CUR?'Mois terminé':'Mois à venir'}</span></div></section>`;
+      <div class="stack" aria-hidden="true">${parts.map(p=>`<span style="width:${p.v/sal*100}%;background:${p.col}"></span>`).join('')}${c.spent>0?`<span style="width:${c.spent/sal*100}%;background:var(--t5)"></span>`:''}${c.saved?`<span style="width:${c.saved/sal*100}%;background:repeating-linear-gradient(135deg,var(--lav) 0 4px,var(--rose-soft) 4px 7px)"></span>`:''}${c.invested?`<span style="width:${c.invested/sal*100}%;background:repeating-linear-gradient(135deg,var(--t4) 0 4px,var(--rose-soft) 4px 7px)"></span>`:''}</div>
+      <div class="hero-meta num"><span>${c.rest==null?'Ajoute ton salaire pour le calculer':'Après charges, dépenses, épargne et investissements'}</span>${c.apl?`<span class="tr-line apl">dont ${eur0.format(c.apl)} d'APL</span>`:''}${c.tr?`<span class="tr-line">+ ${eur0.format(c.tr)} de tickets resto</span>`:''}<span>${isCur?'Mois en cours':k<CUR?'Mois terminé':'Mois à venir'}</span></div></section>`;
   }
   const pct=c.items.length?c.nPaid/c.items.length*100:0;
   const rows=c.items.length?`<div class="rows">${[...c.items].sort((a,b)=>a.paid-b.paid||a.day-b.day).map(x=>`<div class="row ${x.paid?'paid':''}">
@@ -364,6 +367,7 @@ function renderMonth(){
   </div>
   <section class="card"><div class="card-h"><h2>Charges du mois</h2>${c.items.length&&c.nPaid===c.items.length?'<span class="tag ok">Tout est payé</span>':`<span class="aside num">${c.nPaid}/${c.items.length} payées</span>`}</div>
     <div class="card-b" style="padding-bottom:4px"><div class="progress"><span style="width:${pct}%"></span></div></div>${rows}</section>
+  ${accCard('depense',c)}
   ${accCard('epargne',c)}
   ${accCard('invest',c)}
   ${parts.length?`<section class="card"><div class="card-h"><h2>Répartition</h2><span class="aside">par type</span></div><div class="card-b donut">${donut(parts,c.total,eur0.format(c.total),'par mois')}
@@ -372,10 +376,10 @@ function renderMonth(){
 
 function renderYear(){
   const y=view.year;
-  const months=[...Array(12)].map((_,i)=>{const k=key(y,i),c=calc(k);return {i,k,c,has:!!store['m-'+k]&&(c.salary!=null||c.tr!=null||c.apl!=null||c.nPaid>0||c.saved>0||c.invested>0)}});
+  const months=[...Array(12)].map((_,i)=>{const k=key(y,i),c=calc(k);return {i,k,c,has:!!store['m-'+k]&&(c.salary!=null||c.tr!=null||c.apl!=null||c.nPaid>0||c.saved>0||c.invested>0||c.spent>0)}});
   const tracked=months.filter(x=>x.has);
   const paid=tracked.reduce((a,x)=>a+x.c.paid,0), income=tracked.reduce((a,x)=>a+(x.c.salary||0)+(x.c.apl||0)+(x.c.tr||0),0), aplY=tracked.reduce((a,x)=>a+(x.c.apl||0),0), trY=tracked.reduce((a,x)=>a+(x.c.tr||0),0);
-  const savedY=tracked.reduce((a,x)=>a+x.c.saved,0), investY=tracked.reduce((a,x)=>a+x.c.invested,0);
+  const spentY=tracked.reduce((a,x)=>a+x.c.spent,0), savedY=tracked.reduce((a,x)=>a+x.c.saved,0), investY=tracked.reduce((a,x)=>a+x.c.invested,0);
   const so={};tracked.forEach(x=>Object.entries(x.c.md.savings).forEach(([id,v])=>{if(+v)so[id]=(so[id]||0)+(+v)}));
   const accParts=kind=>Object.keys(so).filter(id=>accKind(id)===kind).map(id=>({id,n:savName(id),v:so[id],col:savCol(id)})).sort((a,b)=>b.v-a.v);
   const accSection=(kind,title,tot,sub)=>{const ps=accParts(kind);return ps.length?`<section class="card"><div class="card-h"><h2>${title}</h2><span class="aside">sur ${y}</span></div>
@@ -400,7 +404,7 @@ function renderYear(){
   const o={};tracked.forEach(x=>x.c.items.filter(i=>i.paid).forEach(i=>o[i.type]=(o[i.type]||0)+i.amount));
   const parts=TYPES.map(([id,n])=>({id,n,v:o[id]||0,col:typeColor(id)})).filter(p=>p.v>0).sort((a,b)=>b.v-a.v);
   const pmax=Math.max(1,...parts.map(p=>p.v));
-  const list=tracked.length?`<div class="rows">${[...tracked].reverse().map(x=>{const r=x.c.salary!=null||x.c.apl!=null||x.c.tr!=null?(x.c.salary||0)+(x.c.apl||0)+(x.c.tr||0)-x.c.paid-x.c.saved-x.c.invested:null;const inc=x.c.salary!=null||x.c.apl!=null||x.c.tr!=null?(x.c.salary||0)+(x.c.apl||0)+(x.c.tr||0):null;return `<button class="row" style="border-left:0;border-right:0;border-bottom:0;background:transparent;text-align:left;width:100%" data-act="gomonth" data-k="${x.k}"><div class="main"><span class="t" style="text-transform:capitalize">${MOIS[x.i]}</span><span class="s num">Charges payées ${eur0.format(x.c.paid)} · ${x.c.nPaid}/${x.c.items.length}</span></div><span class="tags">${inc!=null?`<span class="tag blue num" title="Revenus">${eur0.format(inc)}</span>`:''}${r!=null?`<span class="tag ${r>=0?'ok':'rose'} num" title="Solde">${r>=0?'+':''}${eur0.format(r)}</span>`:''}</span></button>`}).join('')}</div>`
+  const list=tracked.length?`<div class="rows">${[...tracked].reverse().map(x=>{const r=x.c.salary!=null||x.c.apl!=null||x.c.tr!=null?(x.c.salary||0)+(x.c.apl||0)+(x.c.tr||0)-x.c.paid-x.c.spent-x.c.saved-x.c.invested:null;const inc=x.c.salary!=null||x.c.apl!=null||x.c.tr!=null?(x.c.salary||0)+(x.c.apl||0)+(x.c.tr||0):null;return `<button class="row" style="border-left:0;border-right:0;border-bottom:0;background:transparent;text-align:left;width:100%" data-act="gomonth" data-k="${x.k}"><div class="main"><span class="t" style="text-transform:capitalize">${MOIS[x.i]}</span><span class="s num">Charges payées ${eur0.format(x.c.paid)} · ${x.c.nPaid}/${x.c.items.length}</span></div><span class="tags">${inc!=null?`<span class="tag blue num" title="Revenus">${eur0.format(inc)}</span>`:''}${r!=null?`<span class="tag ${r>=0?'ok':'rose'} num" title="Solde">${r>=0?'+':''}${eur0.format(r)}</span>`:''}</span></button>`}).join('')}</div>`
     :`<div class="empty"><b>Rien pour ${y}</b>Les totaux apparaîtront dès que tu cocheras une charge.</div>`;
   return `${statusNote()}
   <div class="seg"><button data-act="yprev" aria-label="Année précédente" ${y<=MINY?'disabled style="opacity:.25;cursor:default"':''}>‹</button><div class="label">${y}<small>Suivi de l'année</small></div><button data-act="ynext" aria-label="Année suivante" ${y>=MAXY?'disabled style="opacity:.25;cursor:default"':''}>›</button></div>
@@ -417,6 +421,7 @@ function renderYear(){
     <div class="card-b donut">${donut(parts,paid,eur0.format(paid),'payé en '+y)}<div class="legend">${parts.map(p=>`<div><span class="dot" style="background:${p.col}"></span><span class="n">${p.n}</span><span class="p num">${Math.round(p.v/paid*100)} %</span></div>`).join('')}</div></div>
     <div style="padding:0 0 8px">${parts.map(p=>{const det=Object.values(perCharge).filter(c=>c.type===p.id).sort((a,b)=>b.v-a.v);return `<details class="cat"><summary class="hbar"><div class="top"><span class="dot" style="background:${p.col}"></span><span class="n">${p.n}</span><span class="f num"><b>${eur.format(p.v)}</b></span><span class="chev">›</span></div><div class="progress"><span style="width:${p.v/pmax*100}%;background:${p.col}"></span></div></summary>
       <div class="det">${det.map(d=>`<div><span class="n">${esc(d.name)}</span><span class="m num">${d.n} mois</span><span class="num">${eur.format(d.v)}</span></div>`).join('')}</div></details>`}).join('')}</div></section>`:''}
+  ${accSection('depense','Dépenses par catégorie',spentY,'dépensé')}
   ${accSection('epargne','Épargne par compte',savedY,'épargné')}
   ${accSection('invest','Investissements',investY,'investi')}`;
 }
@@ -436,10 +441,10 @@ function renderCharges(){
     </div>`).join('')||'<div class="empty"><b>Aucune charge</b>Ajoute ta première charge ci-dessous.</div>'}
   </div></section>
   <button class="add" data-act="add">+ Ajouter une charge</button>
-  ${['epargne','invest'].map(kind=>{const K=KINDS[kind],list=s.savings.map((a,i)=>({a,i})).filter(x=>(x.a.kind||'epargne')===kind);
+  ${['depense','epargne','invest'].map(kind=>{const K=KINDS[kind],list=s.savings.map((a,i)=>({a,i})).filter(x=>(x.a.kind||'epargne')===kind);
     return `<section class="card"><div class="card-h"><h2>${K.title}</h2><span class="aside">${K.ex}</span></div><div style="padding-top:8px">
-    ${list.map(({a,i})=>`<div class="edit"><div class="full"><span class="sav-ic" style="background:${savColor(i)}">${esc(a.name.slice(0,1).toUpperCase())}</span><input id="sn-${a.id}" data-set="acc-name" data-i="${i}" value="${esc(a.name)}" aria-label="Nom du compte"><button class="del" data-act="delacc" data-i="${i}" aria-label="Supprimer ${esc(a.name)}">×</button></div></div>`).join('')||`<div class="empty" style="padding:14px">Aucun ${K.one}.</div>`}
-    </div><div class="card-b" style="padding-top:4px"><button class="add" data-act="newacc" data-kind="${kind}" style="padding:10px">+ Ajouter un ${K.one}</button></div></section>`}).join('')}
+    ${list.map(({a,i})=>`<div class="edit"><div class="full"><span class="sav-ic" style="background:${savColor(i)}">${esc(a.name.slice(0,1).toUpperCase())}</span><input id="sn-${a.id}" data-set="acc-name" data-i="${i}" value="${esc(a.name)}" aria-label="Nom du compte"><button class="del" data-act="delacc" data-i="${i}" aria-label="Supprimer ${esc(a.name)}">×</button></div></div>`).join('')||`<div class="empty" style="padding:14px">${K.empty}</div>`}
+    </div><div class="card-b" style="padding-top:4px"><button class="add" data-act="newacc" data-kind="${kind}" style="padding:10px">${K.add}</button></div></section>`}).join('')}
   <section class="card"><div class="card-h"><h2>Sauvegarde</h2>${lastExport()?`<span class="aside">dernière : ${lastExport()}</span>`:''}</div>
     <div class="card-b backup"><button class="btn" data-act="export">Exporter mes données</button><button class="btn ghost" data-act="import">Importer</button></div></section>
 `;
@@ -489,15 +494,15 @@ function amountSheet(id){
 function savingSheet(id){
   const md=monthDoc(view.month),v=+md.savings[id]||0,kind=accKind(id);
   openSheet(`<form id="savForm" data-id="${id}" novalidate><h3>${esc(savName(id))}<button type="button" data-act="close">Fermer</button></h3>
-    <p class="hint">Combien as-tu ${kind==='invest'?'investi':'mis de côté'} en ${MOIS[ym(view.month).m]} ?</p>
+    <p class="hint">Combien as-tu ${KINDS[kind].ask} en ${MOIS[ym(view.month).m]} ?</p>
     <div class="amount-field"><button type="button" class="sign" data-act="sign" aria-label="Passer en négatif ou positif">±</button><input id="sav-v" inputmode="decimal" placeholder="0" autocomplete="off" value="${v?String(v).replace('.',','):''}" aria-label="Montant"><span>€</span></div>
     <p class="err" id="sav-err"></p><button class="primary" type="submit">Enregistrer</button>
     ${v?'<button class="secondary" type="button" data-act="clearsav">Remettre à 0</button>':''}</form>`);
 }
 function newAccSheet(kind){
   const K=KINDS[kind];
-  openSheet(`<form id="accForm" data-kind="${kind}" novalidate><h3>Nouvel ${K.one==='investissement'?'investissement':'compte épargne'}<button type="button" data-act="close">Fermer</button></h3>
-    <div class="edit" style="padding:0;grid-template-columns:1fr"><label>Où ? (${K.ex})<input id="acc-name" autocomplete="off" placeholder="${kind==='invest'?'Ex. PEA':'Ex. Livret A'}"></label></div>
+  openSheet(`<form id="accForm" data-kind="${kind}" novalidate><h3>${K.newTitle}<button type="button" data-act="close">Fermer</button></h3>
+    <div class="edit" style="padding:0;grid-template-columns:1fr"><label>${K.q} (${K.ex})<input id="acc-name" autocomplete="off" placeholder="${K.ph}"></label></div>
     <p class="hint" style="margin:0">Montant pour ${MOIS[ym(view.month).m]} (facultatif)</p>
     <div class="amount-field"><input id="acc-v" inputmode="decimal" placeholder="0" autocomplete="off" aria-label="Montant"><span>€</span></div>
     <p class="err" id="acc-err"></p><button class="primary" type="submit">Ajouter</button></form>`);
@@ -600,7 +605,7 @@ document.addEventListener('submit',ev=>{
   if(f.id==='savForm'){const v=parseAmt($('#sav-v').value||'0');if(isNaN(v)){$('#sav-err').textContent='Indique un montant, par exemple 150 ou -300.';return}
     const id=f.dataset.id,md=monthDoc(view.month);if(v)md.savings[id]=v;else delete md.savings[id];saveMonth(view.month,md);closeSheet();toast(v?`${eur.format(v)} sur ${savName(id)}`:'Remis à 0')}
   if(f.id==='accForm'){const name=$('#acc-name').value.trim(),v=parseAmt($('#acc-v').value||'0');
-    if(!name){$('#acc-err').textContent='Indique où (par ex. Livret A, PEA).';return}
+    if(!name){$('#acc-err').textContent=`Indique un nom (${KINDS[f.dataset.kind].ph}).`;return}
     if(isNaN(v)||v<0){$('#acc-err').textContent='Indique un montant valide.';return}
     const s=clone(settings()),id='a'+uidGen();s.savings.push({id,name,kind:f.dataset.kind});saveSettings(s,true);
     if(v){const md=monthDoc(view.month);md.savings[id]=v;saveMonth(view.month,md,true)}
