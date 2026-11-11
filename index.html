@@ -108,6 +108,8 @@ header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:8
 .opts input{accent-color:var(--rose);width:18px;height:18px;margin:0;flex:none}
 .opts span{display:flex;flex-direction:column}
 .opts small{color:var(--muted);font-size:12px}
+.start-hint{grid-column:1/-1;margin:-2px 0 0;font-size:11px;color:var(--muted)}
+.edit input[type=month]{min-height:40px}
 .hist{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:12px;color:var(--muted);background:var(--soft);border-radius:10px;padding:8px 10px}
 .hist i{font-style:normal;opacity:.6}
 .hist .next{color:var(--rose);font-weight:600}
@@ -305,7 +307,7 @@ const dayLbl=d=>d===1?'1er':String(d);
 function amountFor(f,k){let a=f.amount;(f.history||[]).slice().sort((x,y)=>x.from.localeCompare(y.from)).forEach(h=>{if(h.from<=k)a=h.amount});return a}
 const fmtMonth=k=>{const {y,m}=ym(k);return MOIS[m]+' '+y};
 function calc(k){
-  const md=monthDoc(k), list=settings().fixed;
+  const md=monthDoc(k), list=settings().fixed.filter(f=>!f.start||k>=f.start);
   const items=list.map(f=>{const base=amountFor(f,k),paid=md.paid[f.id]!=null;const amount=paid?md.paid[f.id]:(md.amounts[f.id]??base);return {...f,base,type:f.type||'autre',amount,paid,edited:!paid&&md.amounts[f.id]!=null&&md.amounts[f.id]!==base||paid&&md.paid[f.id]!==base}});
   const total=items.reduce((a,x)=>a+x.amount,0), paid=items.filter(x=>x.paid).reduce((a,x)=>a+x.amount,0);
   const extra=md.extras.reduce((a,e)=>a+(+e.amount||0),0);let saved=0,invested=0,spent=0;Object.entries(md.savings).forEach(([id,v])=>{v=+v||0;const kd=accKind(id);kd==='invest'?invested+=v:kd==='depense'?spent+=v:saved+=v});
@@ -444,7 +446,9 @@ function renderCharges(){
       <div class="full"><input id="fn-${f.id}" data-set="name" data-i="${i}" value="${esc(f.name)}" aria-label="Nom de la charge" style="font-weight:600"><button class="del" data-act="del" data-i="${i}" aria-label="Supprimer ${esc(f.name)}">×</button></div>
       <label>Montant actuel (€)<input id="fa-${f.id}" class="num" data-set="amount" data-i="${i}" inputmode="decimal" value="${String(amountFor(f,CUR)).replace('.',',')}"></label>
       <label>Jour du prélèvement<input id="fd-${f.id}" class="num" data-set="day" data-i="${i}" inputmode="numeric" value="${f.day}"></label>
-      <label style="grid-column:1/-1">Catégorie<select id="ft-${f.id}" data-set="type" data-i="${i}">${TYPES.map(([id,n])=>`<option value="${id}" ${(f.type||'autre')===id?'selected':''}>${n}</option>`).join('')}</select></label>
+      <label>Catégorie<select id="ft-${f.id}" data-set="type" data-i="${i}">${TYPES.map(([id,n])=>`<option value="${id}" ${(f.type||'autre')===id?'selected':''}>${n}</option>`).join('')}</select></label>
+      <label>À partir de<input type="month" id="fs-${f.id}" data-set="start" data-i="${i}" value="${f.start||''}" min="${MINM}"></label>
+      ${f.start?'':'<p class="start-hint">Comptée depuis toujours</p>'}
       ${histLine(f)}
     </div>`).join('')||'<div class="empty"><b>Aucune charge</b>Ajoute ta première charge ci-dessous.</div>'}
   </div></section>
@@ -584,7 +588,7 @@ document.addEventListener('click',ev=>{
     const s=clone(settings());s.savings.splice(+b.dataset.i,1);saveSettings(s,true);render(true);toast('Compte retiré (les montants passés restent dans le suivi)')}
   else if(a==='resetamt'){const id=$('#amtForm').dataset.id,md=monthDoc(view.month),f=settings().fixed.find(f=>f.id===id);delete md.amounts[id];if(md.paid[id]!=null)md.paid[id]=amountFor(f,view.month);saveMonth(view.month,md);closeSheet()}
   else if(a==='close')closeSheet();
-  else if(a==='add'){const s=clone(settings());s.fixed.push({id:'f'+uidGen(),name:'Nouvelle charge',amount:0,day:1,type:'autre'});saveSettings(s,true);render(true);
+  else if(a==='add'){const s=clone(settings());s.fixed.push({id:'f'+uidGen(),name:'Nouvelle charge',amount:0,day:1,type:'autre',start:CUR});saveSettings(s,true);render(true);
     const last=document.querySelectorAll('#main .edit input[data-set="name"]');const el=last[last.length-1];el&&(el.focus(),el.select())}
   else if(a==='del'){
     if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Supprimer';setTimeout(()=>{if(b.isConnected){b.classList.remove('armed');b.textContent='×'}},3000);return}
@@ -604,6 +608,8 @@ document.addEventListener('change',ev=>{
     if(v!==cur)effSheet(i,v);return}
   else if(f==='day'){const v=parseInt(t.value,10);if(!(v>=1&&v<=31)){t.value=item.day;toast('Choisis un jour entre 1 et 31');return}item.day=v}
   else if(f==='type')item.type=t.value;
+  else if(f==='start'){const v=t.value;if(v&&!/^\d{4}-\d{2}$/.test(v)){t.value=item.start||'';toast('Choisis un mois');return}
+    if(v)item.start=v;else delete item.start;saveSettings(s,true);render(true);toast(v?`Comptée à partir de ${fmtMonth(v)}`:'Comptée depuis toujours');return}
   else if(f==='acc-name'){const v=t.value.trim();if(!v){t.value=s.savings[i].name;return}s.savings[i].name=v;saveSettings(s,true);toast('Enregistré');return}
   const wasEx=!!settings().example;saveSettings(s,true);toast('Enregistré');
   if(wasEx){const n=$('#main .note:not(.warn)');n&&n.remove()}
