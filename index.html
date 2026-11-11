@@ -272,6 +272,7 @@ let view={tab:TABS.includes(location.hash.slice(1))?location.hash.slice(1):'mois
 let store={}, editingSettings=false;
 const MAXM=(()=>{const t=new Date(now.getFullYear(),now.getMonth()+1,1);return key(t.getFullYear(),t.getMonth())})(); // mois suivant = limite
 const MAXY=+MAXM.slice(0,4);
+const MINM='2026-01', MINY=2026; // début du calendrier
 
 const settings=()=>{const s=store.settings&&Array.isArray(store.settings.fixed)?store.settings:DEFAULTS;return Array.isArray(s.savings)?s:{...s,savings:DEFAULT_SAV}};
 const monthDoc=k=>{const d=store['m-'+k]?clone(store['m-'+k]):{};d.salary=d.salary??null;d.tr=d.tr??null;d.paid=d.paid||{};d.amounts=d.amounts||{};d.savings=d.savings||{};return d};
@@ -344,7 +345,7 @@ function renderMonth(){
       <button class="amt num ${x.edited?'edited':''}" data-act="amount" data-id="${x.id}" aria-label="Modifier le montant de ${esc(x.name)} ce mois-ci">${eur.format(x.amount)}</button></div>`).join('')}</div>`
     :`<div class="empty"><b>Aucune charge</b>Ajoute ton loyer et tes abonnements dans « Mes charges ».</div>`;
   return `${statusNote()}
-  <div class="seg"><button data-act="mprev" aria-label="Mois précédent">‹</button><div class="label">${MOIS[m]} ${y}</div><button data-act="mnext" aria-label="Mois suivant" ${k>=MAXM?'disabled style="opacity:.25;cursor:default"':''}>›</button></div>
+  <div class="seg"><button data-act="mprev" aria-label="Mois précédent" ${k<=MINM?'disabled style="opacity:.25;cursor:default"':''}>‹</button><div class="label">${MOIS[m]} ${y}</div><button data-act="mnext" aria-label="Mois suivant" ${k>=MAXM?'disabled style="opacity:.25;cursor:default"':''}>›</button></div>
   ${hero}
   <div class="kpis k3">
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--rose)"></span>Charges du mois</span><span class="v num">${eur0.format(c.total)}</span><span class="sub">${c.items.length} prélèvements</span></div>
@@ -395,7 +396,7 @@ function renderYear(){
   const list=tracked.length?`<div class="rows">${[...tracked].reverse().map(x=>{const r=x.c.salary!=null?x.c.salary-x.c.paid:null;return `<button class="row" style="border-left:0;border-right:0;border-bottom:0;background:transparent;text-align:left;width:100%" data-act="gomonth" data-k="${x.k}"><div class="main"><span class="t" style="text-transform:capitalize">${MOIS[x.i]}</span><span class="s num">Charges payées ${eur0.format(x.c.paid)} · ${x.c.nPaid}/${x.c.items.length}</span></div>${r!=null?`<span class="tag ${r>=0?'ok':'rose'} num">${r>=0?'+':''}${eur0.format(r)}</span>`:''}</button>`}).join('')}</div>`
     :`<div class="empty"><b>Rien pour ${y}</b>Les totaux apparaîtront dès que tu cocheras une charge.</div>`;
   return `${statusNote()}
-  <div class="seg"><button data-act="yprev" aria-label="Année précédente">‹</button><div class="label">${y}<small>Suivi de l'année</small></div><button data-act="ynext" aria-label="Année suivante" ${y>=MAXY?'disabled style="opacity:.25;cursor:default"':''}>›</button></div>
+  <div class="seg"><button data-act="yprev" aria-label="Année précédente" ${y<=MINY?'disabled style="opacity:.25;cursor:default"':''}>‹</button><div class="label">${y}<small>Suivi de l'année</small></div><button data-act="ynext" aria-label="Année suivante" ${y>=MAXY?'disabled style="opacity:.25;cursor:default"':''}>›</button></div>
   <section class="card hero"><span class="eyebrow">Charges payées en ${y}</span><div class="big num">${money(paid)}</div>
     <div class="hero-meta num"><span>Moyenne <b>${eur0.format(tracked.length?paid/tracked.length:0)}</b> / mois</span><span>${tracked.length} mois suivis</span></div></section>
   <div class="kpis k3">
@@ -504,7 +505,7 @@ function effSheet(i,v){
       <label><input type="radio" name="eff" value="pick"><span><b>Choisir le mois</b><small>passé ou à venir</small></span></label>
       <label><input type="radio" name="eff" value="always"><span><b>Depuis toujours</b><small>corrige aussi les mois passés non payés</small></span></label>
     </div>
-    <div class="edit" id="pickWrap" style="padding:0;grid-template-columns:1fr" hidden><label>Mois d'effet<input type="month" id="eff-month" value="${CUR}"></label></div>
+    <div class="edit" id="pickWrap" style="padding:0;grid-template-columns:1fr" hidden><label>Mois d'effet<input type="month" id="eff-month" value="${CUR}" min="${MINM}" max="${MAXM}"></label></div>
     <p class="err" id="eff-err"></p><button class="primary" type="submit">Appliquer</button></form>`);
 }
 function salarySheet(){
@@ -521,9 +522,9 @@ function salarySheet(){
 document.addEventListener('click',ev=>{
   const b=ev.target.closest('[data-act]');if(!b)return;
   const a=b.dataset.act;
-  if(a==='mprev'){view.month=shift(view.month,-1);render()}
+  if(a==='mprev'){if(view.month>MINM){view.month=shift(view.month,-1);render()}}
   else if(a==='mnext'){if(view.month<MAXM){view.month=shift(view.month,1);render()}}
-  else if(a==='yprev'){view.year--;render()}
+  else if(a==='yprev'){if(view.year>MINY){view.year--;render()}}
   else if(a==='ynext'){if(view.year<MAXY){view.year++;render()}}
   else if(a==='gomonth'){view.month=b.dataset.k;location.hash='mois'}
   else if(a==='salary')salarySheet();
@@ -582,6 +583,7 @@ document.addEventListener('submit',ev=>{
   if(f.id==='effForm'){const choice=(f.querySelector('input[name=eff]:checked')||{}).value,i=+f.dataset.i,v=+f.dataset.v;
     let from=choice==='cur'?CUR:choice==='next'?shift(CUR,1):choice==='pick'?$('#eff-month').value:null;
     if(choice==='pick'&&!/^\d{4}-\d{2}$/.test(from||'')){$('#eff-err').textContent='Choisis un mois (format AAAA-MM).';return}
+    if(from&&(from<MINM||from>MAXM)){$('#eff-err').textContent=`Choisis un mois entre ${fmtMonth(MINM)} et ${fmtMonth(MAXM)}.`;return}
     const s=clone(settings()),item=s.fixed[i];
     if(choice==='always'){item.amount=v;delete item.history}
     else{item.history=(item.history||[]).filter(h=>h.from!==from);item.history.push({from,amount:v})}
