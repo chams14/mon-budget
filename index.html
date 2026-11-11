@@ -260,15 +260,8 @@ const TYPES=[['logement','Logement'],['energie','Énergie & eau'],['abos','Abonn
 const typeName=t=>(TYPES.find(x=>x[0]===t)||TYPES[5])[1];
 const typeColor=t=>{const i=TYPES.findIndex(x=>x[0]===t);return `var(--t${(i<0?5:i)+1})`};
 
-const DEFAULTS={example:true,fixed:[
-  {id:'loyer',name:'Loyer',amount:650,day:1,type:'logement'},
-  {id:'elec',name:'Électricité',amount:55,day:5,type:'energie'},
-  {id:'box',name:'Internet',amount:30,day:10,type:'abos'},
-  {id:'tel',name:'Forfait mobile',amount:15,day:12,type:'abos'},
-  {id:'streaming',name:'Streaming',amount:14,day:18,type:'abos'},
-  {id:'assur',name:'Assurance habitation',amount:18,day:15,type:'assur'},
-  {id:'nav',name:'Pass transport',amount:86,day:3,type:'transport'}]};
-const DEFAULT_SAV=[{id:'livret',name:'Livret A',kind:'epargne'},{id:'ldds',name:'LDDS',kind:'epargne'},{id:'pea',name:'PEA',kind:'invest'},{id:'crypto',name:'Crypto',kind:'invest'},{id:'av',name:'Assurance-vie',kind:'invest'}];
+const DEFAULTS={fixed:[]};
+const DEFAULT_SAV=[];
 const KINDS={epargne:{title:'Mon épargne',one:'compte épargne',ex:'Livret A, LDDS, LEP…'},invest:{title:'Mes investissements',one:'investissement',ex:'PEA, crypto, assurance-vie…'}};
 const accKind=id=>{const a=settings().savings.find(x=>x.id===id);return a&&a.kind==='invest'?'invest':'epargne'};
 const savColor=i=>`var(--t${[2,4,3,1,5,6][i%6]})`;

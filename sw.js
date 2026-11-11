@@ -1,7 +1,7 @@
 // Cache hors connexion de Mon Budget.
 // Les données de l'app (localStorage) ne passent jamais par ce fichier : il ne met en cache que le code.
 // Change VERSION à chaque mise à jour du code pour forcer le rafraîchissement.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = 'mon-budget-' + VERSION;
 const FILES = [
   './',
