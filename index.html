@@ -219,6 +219,7 @@ nav.tabs a[aria-current="page"]{color:var(--rose)}
 .amount-field{display:flex;align-items:baseline;justify-content:center;gap:6px;border-bottom:1.5px solid var(--line);padding-bottom:4px}
 .amount-field:focus-within{border-color:var(--rose)}
 .amount-field input{border:0;background:transparent;font-family:var(--serif);font-size:52px;width:100%;text-align:center;outline:none;min-width:0}
+.amount-field .sign{flex:none;align-self:center;width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--soft);color:var(--ink);font-size:20px;font-weight:600}
 .amount-field span{font-family:var(--serif);font-size:30px;color:var(--muted)}
 .primary{border:0;border-radius:14px;background:var(--rose);color:var(--rose-ink);padding:15px;font-weight:600;font-size:16px;width:100%}
 .secondary{border:1px solid var(--line);border-radius:14px;background:transparent;padding:13px;font-weight:600;width:100%;color:var(--muted)}
@@ -487,7 +488,7 @@ function savingSheet(id){
   const md=monthDoc(view.month),v=+md.savings[id]||0,kind=accKind(id);
   openSheet(`<form id="savForm" data-id="${id}" novalidate><h3>${esc(savName(id))}<button type="button" data-act="close">Fermer</button></h3>
     <p class="hint">Combien as-tu ${kind==='invest'?'investi':'mis de côté'} en ${MOIS[ym(view.month).m]} ?</p>
-    <div class="amount-field"><input id="sav-v" inputmode="decimal" placeholder="0" autocomplete="off" value="${v?String(v).replace('.',','):''}" aria-label="Montant"><span>€</span></div>
+    <div class="amount-field"><button type="button" class="sign" data-act="sign" aria-label="Passer en négatif ou positif">±</button><input id="sav-v" inputmode="decimal" placeholder="0" autocomplete="off" value="${v?String(v).replace('.',','):''}" aria-label="Montant"><span>€</span></div>
     <p class="err" id="sav-err"></p><button class="primary" type="submit">Enregistrer</button>
     ${v?'<button class="secondary" type="button" data-act="clearsav">Remettre à 0</button>':''}</form>`);
 }
@@ -539,6 +540,7 @@ document.addEventListener('click',ev=>{
     else md.paid[x.id]=x.amount; saveMonth(view.month,md)}
   else if(a==='amount')amountSheet(b.dataset.id);
   else if(a==='saving')savingSheet(b.dataset.id);
+  else if(a==='sign'){const i=$('#sav-v'),v=i.value.trim();i.value=v.startsWith('-')?v.slice(1):'-'+v;i.focus()}
   else if(a==='export')exportData();
   else if(a==='import')$('#importInput').click();
   else if(a==='confirmimport'){if(pendingImport){store=pendingImport;pendingImport=null;
@@ -593,7 +595,7 @@ document.addEventListener('submit',ev=>{
     if(choice==='always'){item.amount=v;delete item.history}
     else{item.history=(item.history||[]).filter(h=>h.from!==from);item.history.push({from,amount:v})}
     saveSettings(s,true);closeSheet();render(true);toast(choice==='always'?'Prix modifié':`${eur.format(v)} dès ${fmtMonth(from)}`);return}
-  if(f.id==='savForm'){const v=parseAmt($('#sav-v').value||'0');if(isNaN(v)||v<0){$('#sav-err').textContent='Indique un montant, par exemple 150.';return}
+  if(f.id==='savForm'){const v=parseAmt($('#sav-v').value||'0');if(isNaN(v)){$('#sav-err').textContent='Indique un montant, par exemple 150 ou -300.';return}
     const id=f.dataset.id,md=monthDoc(view.month);if(v)md.savings[id]=v;else delete md.savings[id];saveMonth(view.month,md);closeSheet();toast(v?`${eur.format(v)} sur ${savName(id)}`:'Remis à 0')}
   if(f.id==='accForm'){const name=$('#acc-name').value.trim(),v=parseAmt($('#acc-v').value||'0');
     if(!name){$('#acc-err').textContent='Indique où (par ex. Livret A, PEA).';return}
