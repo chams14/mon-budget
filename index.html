@@ -329,8 +329,7 @@ function accCard(kind,c){
   const K=KINDS[kind],all=settings().savings,list=all.filter(a=>(a.kind||'epargne')===kind);
   const tot=kind==='invest'?c.invested:c.saved;
   return `<section class="card"><div class="card-h"><h2>${K.title}</h2><span class="aside num">${eur0.format(tot)} ce mois-ci</span></div>
-    <div class="rows" style="padding-top:6px">${list.map(s=>{const i=all.indexOf(s),v=+c.md.savings[s.id]||0;return `<div class="row"><span class="sav-ic" style="background:${savColor(i)}">${esc(s.name.slice(0,1).toUpperCase())}</span><div class="main"><span class="t">${esc(s.name)}</span><span class="s">${v?(kind==='invest'?'Investi':'Versé')+' ce mois-ci':'Rien pour l\'instant'}</span></div><button class="amt num ${v?'':'zero'}" data-act="saving" data-id="${s.id}" aria-label="Montant pour ${esc(s.name)}">${v?eur.format(v):'+ Montant'}</button></div>`}).join('')||`<div class="empty" style="padding:14px 16px">Aucun ${K.one} pour l'instant.</div>`}</div>
-    <div class="card-b" style="padding-top:4px"><button class="add" data-act="newacc" data-kind="${kind}" style="padding:10px">+ Ajouter un ${K.one}</button></div></section>`;
+    <div class="rows" style="padding-top:6px">${list.map(s=>{const i=all.indexOf(s),v=+c.md.savings[s.id]||0;return `<div class="row"><span class="sav-ic" style="background:${savColor(i)}">${esc(s.name.slice(0,1).toUpperCase())}</span><div class="main"><span class="t">${esc(s.name)}</span><span class="s">${v?(kind==='invest'?'Investi':'Versé')+' ce mois-ci':'Rien pour l\'instant'}</span></div><button class="amt num ${v?'':'zero'}" data-act="saving" data-id="${s.id}" aria-label="Montant pour ${esc(s.name)}">${v?eur.format(v):'+ Montant'}</button></div>`}).join('')||`<div class="empty" style="padding:14px 16px">Aucun ${K.one}. Ajoute-en dans « Mes charges ».</div>`}</div></section>`;
 }
 function renderMonth(){
   const k=view.month,{y,m}=ym(k),c=calc(k),isCur=k===CUR;
