@@ -370,7 +370,7 @@ function renderYear(){
   const y=view.year;
   const months=[...Array(12)].map((_,i)=>{const k=key(y,i),c=calc(k);return {i,k,c,has:!!store['m-'+k]&&(c.salary!=null||c.tr!=null||c.apl!=null||c.nPaid>0||c.saved>0||c.invested>0)}});
   const tracked=months.filter(x=>x.has);
-  const paid=tracked.reduce((a,x)=>a+x.c.paid,0), income=tracked.reduce((a,x)=>a+(x.c.salary||0)+(x.c.apl||0),0), aplY=tracked.reduce((a,x)=>a+(x.c.apl||0),0), trY=tracked.reduce((a,x)=>a+(x.c.tr||0),0);
+  const paid=tracked.reduce((a,x)=>a+x.c.paid,0), income=tracked.reduce((a,x)=>a+(x.c.salary||0)+(x.c.apl||0)+(x.c.tr||0),0), aplY=tracked.reduce((a,x)=>a+(x.c.apl||0),0), trY=tracked.reduce((a,x)=>a+(x.c.tr||0),0);
   const savedY=tracked.reduce((a,x)=>a+x.c.saved,0), investY=tracked.reduce((a,x)=>a+x.c.invested,0);
   const so={};tracked.forEach(x=>Object.entries(x.c.md.savings).forEach(([id,v])=>{if(+v)so[id]=(so[id]||0)+(+v)}));
   const accParts=kind=>Object.keys(so).filter(id=>accKind(id)===kind).map(id=>({id,n:savName(id),v:so[id],col:savCol(id)})).sort((a,b)=>b.v-a.v);
@@ -403,9 +403,9 @@ function renderYear(){
   <section class="card hero"><span class="eyebrow">Charges payées en ${y}</span><div class="big num">${money(paid)}</div>
     <div class="hero-meta num"><span>Moyenne <b>${eur0.format(tracked.length?paid/tracked.length:0)}</b> / mois</span><span>${tracked.length} mois suivis</span></div></section>
   <div class="kpis k3">
-    <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t3)"></span>Revenus</span><span class="v num">${eur0.format(income)}</span><span class="sub">${[aplY?`dont ${eur0.format(aplY)} APL`:'',trY?`+ ${eur0.format(trY)} TR`:''].filter(Boolean).join(' · ')||`sur ${tracked.filter(x=>x.c.salary!=null).length} mois`}</span></div>
-    <div class="card kpi"><span class="k"><span class="dot" style="background:var(--lav)"></span>Épargné</span><span class="v num">${eur0.format(savedY)}</span><span class="sub">${income?Math.round(savedY/income*100):0} % des salaires</span></div>
-    <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t4)"></span>Investi</span><span class="v num">${eur0.format(investY)}</span><span class="sub">${income?Math.round(investY/income*100):0} % des salaires</span></div>
+    <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t3)"></span>Revenus</span><span class="v num">${eur0.format(income)}</span><span class="sub">${[aplY?`dont ${eur0.format(aplY)} APL`:'',trY?`${eur0.format(trY)} TR`:''].filter(Boolean).join(' · ').replace(/^(\d)/,'dont $1')||`sur ${tracked.filter(x=>x.c.salary!=null).length} mois`}</span></div>
+    <div class="card kpi"><span class="k"><span class="dot" style="background:var(--lav)"></span>Épargné</span><span class="v num">${eur0.format(savedY)}</span><span class="sub">${income?Math.round(savedY/income*100):0} % des revenus</span></div>
+    <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t4)"></span>Investi</span><span class="v num">${eur0.format(investY)}</span><span class="sub">${income?Math.round(investY/income*100):0} % des revenus</span></div>
   </div>
   <section class="card"><div class="card-h"><h2>Mois par mois</h2></div><div class="card-b chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Charges payées par mois en ${y}">${g}</svg>
     <div class="chart-legend"><span><span class="dot" style="background:var(--rose);border-radius:3px"></span>Charges payées</span><span><i style="width:12px;height:3px;border-radius:2px;background:var(--t3);display:inline-block"></i>Salaire</span><span><i style="width:14px;height:2.5px;border-radius:2px;background:var(--lav);display:inline-block"></i>Épargne</span><span><i style="width:14px;height:2.5px;border-radius:2px;background:var(--t4);display:inline-block"></i>Investissement</span></div></div>${list}</section>
