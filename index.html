@@ -117,6 +117,9 @@ header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:8
 .field2 label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-align:center;margin-bottom:2px}
 .amount-field.small input{font-size:36px}
 .amount-field.small span{font-size:22px}
+.k3 .kpi .sub.sal-sub{flex-wrap:wrap;row-gap:2px;white-space:normal}
+.kpi .sub .tr.apl{color:var(--t4)}
+.hero-meta .tr-line.apl{color:var(--t4);order:2}
 .kpi .sub .tr{font-size:11px;font-weight:600;color:var(--t3)}
 .k3 .kpi .sub{display:flex;align-items:center;gap:5px}
 .sal-edit{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--rose-soft);color:var(--rose)}
@@ -275,7 +278,7 @@ const MAXY=+MAXM.slice(0,4);
 const MINM='2026-01', MINY=2026; // début du calendrier
 
 const settings=()=>{const s=store.settings&&Array.isArray(store.settings.fixed)?store.settings:DEFAULTS;return Array.isArray(s.savings)?s:{...s,savings:DEFAULT_SAV}};
-const monthDoc=k=>{const d=store['m-'+k]?clone(store['m-'+k]):{};d.salary=d.salary??null;d.tr=d.tr??null;d.paid=d.paid||{};d.amounts=d.amounts||{};d.savings=d.savings||{};return d};
+const monthDoc=k=>{const d=store['m-'+k]?clone(store['m-'+k]):{};d.salary=d.salary??null;d.tr=d.tr??null;d.apl=d.apl??null;d.paid=d.paid||{};d.amounts=d.amounts||{};d.savings=d.savings||{};return d};
 const savName=id=>{const a=settings().savings.find(x=>x.id===id);return a?a.name:'Ancien placement'};
 const savCol=id=>{const i=settings().savings.findIndex(x=>x.id===id);return i<0?'var(--t6)':savColor(i)};
 const ym=k=>{const [y,m]=k.split('-').map(Number);return {y,m:m-1}};
@@ -290,7 +293,7 @@ function calc(k){
   const items=list.map(f=>{const base=amountFor(f,k),paid=md.paid[f.id]!=null;const amount=paid?md.paid[f.id]:(md.amounts[f.id]??base);return {...f,base,type:f.type||'autre',amount,paid,edited:!paid&&md.amounts[f.id]!=null&&md.amounts[f.id]!==base||paid&&md.paid[f.id]!==base}});
   const total=items.reduce((a,x)=>a+x.amount,0), paid=items.filter(x=>x.paid).reduce((a,x)=>a+x.amount,0);
   let saved=0,invested=0;Object.entries(md.savings).forEach(([id,v])=>{v=+v||0;accKind(id)==='invest'?invested+=v:saved+=v});
-  return {md,items,total,paid,saved,invested,toPay:total-paid,salary:md.salary,tr:md.tr,rest:md.salary!=null?md.salary-total-saved-invested:null,nPaid:items.filter(x=>x.paid).length};
+  return {md,items,total,paid,saved,invested,toPay:total-paid,salary:md.salary,tr:md.tr,apl:md.apl,rest:md.salary!=null||md.apl!=null?(md.salary||0)+(md.apl||0)-total-saved-invested:null,nPaid:items.filter(x=>x.paid).length};
 }
 function byType(items){const o={};items.forEach(x=>o[x.type]=(o[x.type]||0)+x.amount);return TYPES.map(([id,n])=>({id,n,v:o[id]||0,col:typeColor(id)})).filter(x=>x.v>0)}
 
@@ -302,7 +305,7 @@ function save(id,data,silent){
   try{localStorage.setItem(LS_KEY,JSON.stringify(store))}
   catch(e){toast("Impossible d'enregistrer sur cet appareil (navigation privée ?).")}
 }
-const saveMonth=(k,md,silent)=>save('m-'+k,{salary:md.salary,tr:md.tr,paid:md.paid,amounts:md.amounts,savings:md.savings},silent);
+const saveMonth=(k,md,silent)=>save('m-'+k,{salary:md.salary,tr:md.tr,apl:md.apl,paid:md.paid,amounts:md.amounts,savings:md.savings},silent);
 function saveSettings(s,silent){save('settings',{fixed:s.fixed,savings:s.savings},silent)}
 
 /* ---------- rendu ---------- */
@@ -336,7 +339,7 @@ function renderMonth(){
     hero=`<section class="card hero"><div class="hero-top"><span class="eyebrow">Reste à vivre</span></div>
       <div class="big num ${c.rest<0?'neg':''}">${c.rest==null?'— €':money(c.rest)}</div>
       <div class="stack" aria-hidden="true">${parts.map(p=>`<span style="width:${p.v/sal*100}%;background:${p.col}"></span>`).join('')}${c.saved?`<span style="width:${c.saved/sal*100}%;background:repeating-linear-gradient(135deg,var(--lav) 0 4px,var(--rose-soft) 4px 7px)"></span>`:''}${c.invested?`<span style="width:${c.invested/sal*100}%;background:repeating-linear-gradient(135deg,var(--t4) 0 4px,var(--rose-soft) 4px 7px)"></span>`:''}</div>
-      <div class="hero-meta num"><span>${c.salary==null?'Ajoute ton salaire pour le calculer':'Après charges, épargne et investissements'}</span>${c.tr?`<span class="tr-line">+ ${eur0.format(c.tr)} de tickets resto</span>`:''}<span>${isCur?'Mois en cours':k<CUR?'Mois terminé':'Mois à venir'}</span></div></section>`;
+      <div class="hero-meta num"><span>${c.rest==null?'Ajoute ton salaire pour le calculer':'Après charges, épargne et investissements'}</span>${c.apl?`<span class="tr-line apl">dont ${eur0.format(c.apl)} d'APL</span>`:''}${c.tr?`<span class="tr-line">+ ${eur0.format(c.tr)} de tickets resto</span>`:''}<span>${isCur?'Mois en cours':k<CUR?'Mois terminé':'Mois à venir'}</span></div></section>`;
   }
   const pct=c.items.length?c.nPaid/c.items.length*100:0;
   const rows=c.items.length?`<div class="rows">${[...c.items].sort((a,b)=>a.paid-b.paid||a.day-b.day).map(x=>`<div class="row ${x.paid?'paid':''}">
@@ -351,7 +354,7 @@ function renderMonth(){
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--rose)"></span>Charges du mois</span><span class="v num">${eur0.format(c.total)}</span><span class="sub">${c.items.length} prélèvements</span></div>
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--ok)"></span>Déjà payé</span><span class="v num">${eur0.format(c.paid)}</span><span class="sub">${c.nPaid} sur ${c.items.length}</span></div>
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t5)"></span>Reste à payer</span><span class="v num">${eur0.format(c.toPay)}</span><span class="sub">${c.toPay?'d\'ici la fin du mois':'tout est réglé'}</span></div>
-    <button class="card kpi" data-act="salary"><span class="k"><span class="dot" style="background:var(--t3)"></span>Salaire</span><span class="v num">${c.salary!=null?eur0.format(c.salary):'—'}</span><span class="sub"><span class="sal-edit" aria-label="Modifier le salaire"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></span>${c.tr?`<span class="tr num">+ ${eur0.format(c.tr)} TR</span>`:''}</span></button>
+    <button class="card kpi" data-act="salary"><span class="k"><span class="dot" style="background:var(--t3)"></span>Salaire</span><span class="v num">${c.salary!=null?eur0.format(c.salary):'—'}</span><span class="sub sal-sub"><span class="sal-edit" aria-label="Modifier le salaire"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></span>${c.apl?`<span class="tr apl num">+ ${eur0.format(c.apl)} APL</span>`:''}${c.tr?`<span class="tr num">+ ${eur0.format(c.tr)} TR</span>`:''}</span></button>
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--lav)"></span>Épargne</span><span class="v num">${eur0.format(c.saved)}</span><span class="sub">${c.salary?Math.round(c.saved/c.salary*100)+' % du salaire':'ce mois-ci'}</span></div>
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t4)"></span>Investissement</span><span class="v num">${eur0.format(c.invested)}</span><span class="sub">${c.salary?Math.round(c.invested/c.salary*100)+' % du salaire':'ce mois-ci'}</span></div>
   </div>
@@ -365,9 +368,9 @@ function renderMonth(){
 
 function renderYear(){
   const y=view.year;
-  const months=[...Array(12)].map((_,i)=>{const k=key(y,i),c=calc(k);return {i,k,c,has:!!store['m-'+k]&&(c.salary!=null||c.tr!=null||c.nPaid>0||c.saved>0||c.invested>0)}});
+  const months=[...Array(12)].map((_,i)=>{const k=key(y,i),c=calc(k);return {i,k,c,has:!!store['m-'+k]&&(c.salary!=null||c.tr!=null||c.apl!=null||c.nPaid>0||c.saved>0||c.invested>0)}});
   const tracked=months.filter(x=>x.has);
-  const paid=tracked.reduce((a,x)=>a+x.c.paid,0), income=tracked.reduce((a,x)=>a+(x.c.salary||0),0), trY=tracked.reduce((a,x)=>a+(x.c.tr||0),0);
+  const paid=tracked.reduce((a,x)=>a+x.c.paid,0), income=tracked.reduce((a,x)=>a+(x.c.salary||0)+(x.c.apl||0),0), aplY=tracked.reduce((a,x)=>a+(x.c.apl||0),0), trY=tracked.reduce((a,x)=>a+(x.c.tr||0),0);
   const savedY=tracked.reduce((a,x)=>a+x.c.saved,0), investY=tracked.reduce((a,x)=>a+x.c.invested,0);
   const so={};tracked.forEach(x=>Object.entries(x.c.md.savings).forEach(([id,v])=>{if(+v)so[id]=(so[id]||0)+(+v)}));
   const accParts=kind=>Object.keys(so).filter(id=>accKind(id)===kind).map(id=>({id,n:savName(id),v:so[id],col:savCol(id)})).sort((a,b)=>b.v-a.v);
@@ -393,14 +396,14 @@ function renderYear(){
   const o={};tracked.forEach(x=>x.c.items.filter(i=>i.paid).forEach(i=>o[i.type]=(o[i.type]||0)+i.amount));
   const parts=TYPES.map(([id,n])=>({id,n,v:o[id]||0,col:typeColor(id)})).filter(p=>p.v>0).sort((a,b)=>b.v-a.v);
   const pmax=Math.max(1,...parts.map(p=>p.v));
-  const list=tracked.length?`<div class="rows">${[...tracked].reverse().map(x=>{const r=x.c.salary!=null?x.c.salary-x.c.paid:null;return `<button class="row" style="border-left:0;border-right:0;border-bottom:0;background:transparent;text-align:left;width:100%" data-act="gomonth" data-k="${x.k}"><div class="main"><span class="t" style="text-transform:capitalize">${MOIS[x.i]}</span><span class="s num">Charges payées ${eur0.format(x.c.paid)} · ${x.c.nPaid}/${x.c.items.length}</span></div>${r!=null?`<span class="tag ${r>=0?'ok':'rose'} num">${r>=0?'+':''}${eur0.format(r)}</span>`:''}</button>`}).join('')}</div>`
+  const list=tracked.length?`<div class="rows">${[...tracked].reverse().map(x=>{const r=x.c.salary!=null||x.c.apl!=null?(x.c.salary||0)+(x.c.apl||0)-x.c.paid-x.c.saved-x.c.invested:null;return `<button class="row" style="border-left:0;border-right:0;border-bottom:0;background:transparent;text-align:left;width:100%" data-act="gomonth" data-k="${x.k}"><div class="main"><span class="t" style="text-transform:capitalize">${MOIS[x.i]}</span><span class="s num">Charges payées ${eur0.format(x.c.paid)} · ${x.c.nPaid}/${x.c.items.length}</span></div>${r!=null?`<span class="tag ${r>=0?'ok':'rose'} num">${r>=0?'+':''}${eur0.format(r)}</span>`:''}</button>`}).join('')}</div>`
     :`<div class="empty"><b>Rien pour ${y}</b>Les totaux apparaîtront dès que tu cocheras une charge.</div>`;
   return `${statusNote()}
   <div class="seg"><button data-act="yprev" aria-label="Année précédente" ${y<=MINY?'disabled style="opacity:.25;cursor:default"':''}>‹</button><div class="label">${y}<small>Suivi de l'année</small></div><button data-act="ynext" aria-label="Année suivante" ${y>=MAXY?'disabled style="opacity:.25;cursor:default"':''}>›</button></div>
   <section class="card hero"><span class="eyebrow">Charges payées en ${y}</span><div class="big num">${money(paid)}</div>
     <div class="hero-meta num"><span>Moyenne <b>${eur0.format(tracked.length?paid/tracked.length:0)}</b> / mois</span><span>${tracked.length} mois suivis</span></div></section>
   <div class="kpis k3">
-    <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t3)"></span>Salaires</span><span class="v num">${eur0.format(income)}</span><span class="sub">${trY?`+ ${eur0.format(trY)} TR`:`sur ${tracked.filter(x=>x.c.salary!=null).length} mois`}</span></div>
+    <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t3)"></span>Revenus</span><span class="v num">${eur0.format(income)}</span><span class="sub">${[aplY?`dont ${eur0.format(aplY)} APL`:'',trY?`+ ${eur0.format(trY)} TR`:''].filter(Boolean).join(' · ')||`sur ${tracked.filter(x=>x.c.salary!=null).length} mois`}</span></div>
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--lav)"></span>Épargné</span><span class="v num">${eur0.format(savedY)}</span><span class="sub">${income?Math.round(savedY/income*100):0} % des salaires</span></div>
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t4)"></span>Investi</span><span class="v num">${eur0.format(investY)}</span><span class="sub">${income?Math.round(investY/income*100):0} % des salaires</span></div>
   </div>
@@ -510,11 +513,12 @@ function effSheet(i,v){
 }
 function salarySheet(){
   const md=monthDoc(view.month),pm=monthDoc(shift(view.month,-1)),fmt=v=>v!=null?String(v).replace('.',','):'';
-  const canPrefill=(pm.salary!=null||pm.tr!=null)&&md.salary==null&&md.tr==null;
+  const canPrefill=(pm.salary!=null||pm.tr!=null||pm.apl!=null)&&md.salary==null&&md.tr==null&&md.apl==null;
   openSheet(`<form id="salForm" novalidate><h3>Revenus de ${MOIS[ym(view.month).m]}<button type="button" data-act="close">Fermer</button></h3>
     <div class="field2"><label for="sal-v">Salaire net</label><div class="amount-field"><input id="sal-v" inputmode="decimal" placeholder="0" autocomplete="off" value="${fmt(md.salary)}"><span>€</span></div></div>
+    <div class="field2"><label for="apl-v">APL</label><div class="amount-field small"><input id="apl-v" inputmode="decimal" placeholder="0" autocomplete="off" value="${fmt(md.apl)}"><span>€</span></div></div>
     <div class="field2"><label for="tr-v">Tickets restaurant</label><div class="amount-field small"><input id="tr-v" inputmode="decimal" placeholder="0" autocomplete="off" value="${fmt(md.tr)}"><span>€</span></div></div>
-    ${canPrefill?`<button type="button" class="secondary" data-act="prefill" data-s="${pm.salary??''}" data-t="${pm.tr??''}">Reprendre ceux du mois dernier</button>`:''}
+    ${canPrefill?`<button type="button" class="secondary" data-act="prefill" data-s="${pm.salary??''}" data-t="${pm.tr??''}" data-a="${pm.apl??''}">Reprendre ceux du mois dernier</button>`:''}
     <p class="err" id="sal-err"></p><button class="primary" type="submit">Enregistrer</button></form>`);
 }
 
@@ -539,7 +543,7 @@ document.addEventListener('click',ev=>{
   else if(a==='confirmimport'){if(pendingImport){store=pendingImport;pendingImport=null;
     try{localStorage.setItem(LS_KEY,JSON.stringify(store))}catch(e){toast("Impossible d'enregistrer sur cet appareil.");return}
     closeSheet();render(true);toast('Données importées')}}
-  else if(a==='prefill'){$('#sal-v').value=b.dataset.s.replace('.',',');$('#tr-v').value=b.dataset.t.replace('.',',');b.remove()}
+  else if(a==='prefill'){$('#sal-v').value=b.dataset.s.replace('.',',');$('#tr-v').value=b.dataset.t.replace('.',',');$('#apl-v').value=b.dataset.a.replace('.',',');b.remove()}
   else if(a==='clearhist'){
     if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Confirmer';setTimeout(()=>{if(b.isConnected){b.classList.remove('armed');b.textContent='Effacer'}},3000);return}
     const s=clone(settings()),it=s.fixed[+b.dataset.i];it.amount=amountFor(it,CUR);delete it.history;saveSettings(s,true);render(true);toast('Historique effacé')}
@@ -577,9 +581,9 @@ document.addEventListener('change',ev=>{
 
 document.addEventListener('submit',ev=>{
   ev.preventDefault();const f=ev.target;
-  if(f.id==='salForm'){const sv=$('#sal-v').value.trim(),tv=$('#tr-v').value.trim(),v=sv?parseAmt(sv):null,t=tv?parseAmt(tv):null;
-    if(v!==null&&(isNaN(v)||v<0)||t!==null&&(isNaN(t)||t<0)){$('#sal-err').textContent='Indique un montant, par exemple 2100 ou 2 100,50.';return}
-    const md=monthDoc(view.month);md.salary=v;md.tr=t||null;saveMonth(view.month,md);closeSheet();toast('Revenus enregistrés')}
+  if(f.id==='salForm'){const sv=$('#sal-v').value.trim(),tv=$('#tr-v').value.trim(),av=$('#apl-v').value.trim(),v=sv?parseAmt(sv):null,t=tv?parseAmt(tv):null,ap=av?parseAmt(av):null;
+    if([v,t,ap].some(x=>x!==null&&(isNaN(x)||x<0))){$('#sal-err').textContent='Indique un montant, par exemple 2100 ou 2 100,50.';return}
+    const md=monthDoc(view.month);md.salary=v;md.tr=t||null;md.apl=ap||null;saveMonth(view.month,md);closeSheet();toast('Revenus enregistrés')}
   if(f.id==='effForm'){const choice=(f.querySelector('input[name=eff]:checked')||{}).value,i=+f.dataset.i,v=+f.dataset.v;
     let from=choice==='cur'?CUR:choice==='next'?shift(CUR,1):choice==='pick'?$('#eff-month').value:null;
     if(choice==='pick'&&!/^\d{4}-\d{2}$/.test(from||'')){$('#eff-err').textContent='Choisis un mois (format AAAA-MM).';return}
