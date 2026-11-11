@@ -118,6 +118,8 @@ header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:8
 .amount-field.small input{font-size:36px}
 .amount-field.small span{font-size:22px}
 .k3 .kpi .sub.sal-sub{flex-wrap:wrap;row-gap:2px;white-space:normal}
+.k3 .kpi .sub.lines{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+.k3 .kpi .sub.lines span{overflow:hidden;text-overflow:ellipsis}
 .kpi .sub .tr.apl{color:var(--t4)}
 .hero-meta .tr-line.apl{color:var(--t4);order:2}
 .kpi .sub .tr{font-size:11px;font-weight:600;color:var(--t3)}
@@ -403,7 +405,7 @@ function renderYear(){
   <section class="card hero"><span class="eyebrow">Charges payées en ${y}</span><div class="big num">${money(paid)}</div>
     <div class="hero-meta num"><span>Moyenne <b>${eur0.format(tracked.length?paid/tracked.length:0)}</b> / mois</span><span>${tracked.length} mois suivis</span></div></section>
   <div class="kpis k3">
-    <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t3)"></span>Revenus</span><span class="v num">${eur0.format(income)}</span><span class="sub">${[aplY?`dont ${eur0.format(aplY)} APL`:'',trY?`${eur0.format(trY)} TR`:''].filter(Boolean).join(' · ').replace(/^(\d)/,'dont $1')||`sur ${tracked.filter(x=>x.c.salary!=null).length} mois`}</span></div>
+    <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t3)"></span>Revenus</span><span class="v num">${eur0.format(income)}</span><span class="sub lines">${aplY||trY?[aplY?`<span>dont ${eur0.format(aplY)} APL</span>`:'',trY?`<span>${aplY?'· ':'dont '}${eur0.format(trY)} TR</span>`:''].join(''):`sur ${tracked.filter(x=>x.c.salary!=null).length} mois`}</span></div>
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--lav)"></span>Épargné</span><span class="v num">${eur0.format(savedY)}</span><span class="sub">${income?Math.round(savedY/income*100):0} % des revenus</span></div>
     <div class="card kpi"><span class="k"><span class="dot" style="background:var(--t4)"></span>Investi</span><span class="v num">${eur0.format(investY)}</span><span class="sub">${income?Math.round(investY/income*100):0} % des revenus</span></div>
   </div>
